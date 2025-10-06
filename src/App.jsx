@@ -7,13 +7,15 @@ import { MatchStats } from './MatchStats';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useCricket } from './hooks/useCricket';
 
+const TITLE_PREFIX = 'Cricket Live';
+
 const TitleUpdater = () => {
   const { state } = useCricket();
   const completeOvers = (state.overs || '0.0').split('.')[0];
 
   // Update the tab title whenever score, wickets or overs change
   // Example: Woyce | 152/0 ( 25 )
-  const title = `Woyce | ${state.score}/${state.wickets} ( ${completeOvers} )`;
+  const title = `${TITLE_PREFIX} | ${state.score}/${state.wickets} ( ${completeOvers} )`;
   if (typeof document !== 'undefined' && document.title !== title) {
     document.title = title;
   }

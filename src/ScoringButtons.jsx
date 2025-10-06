@@ -24,7 +24,21 @@ export const ScoringButtons = () => {
   };
 
   const handleExtraClick = (extra) => {
-    actions.addRuns(extra.runs, true, extra.type);
+    let totalRuns = extra.runs;
+    if (extra.type === 'no-ball') {
+      const input = prompt('No-ball: additional runs off the bat? (0 for none)', '0');
+      const batRuns = Math.max(0, parseInt(input || '0', 10) || 0);
+      totalRuns = 1 + batRuns; // 1 no-ball + bat runs
+    } else if (extra.type === 'wide') {
+      const input = prompt('How many wides? (default 1)', String(extra.runs));
+      const wides = Math.max(1, parseInt(input || String(extra.runs), 10) || extra.runs);
+      totalRuns = wides; // wides equal entered count
+    } else if (extra.type === 'bye' || extra.type === 'leg-bye') {
+      const input = prompt(`How many ${extra.type === 'bye' ? 'byes' : 'leg-byes'}? (default 1)`, String(extra.runs));
+      const runs = Math.max(1, parseInt(input || String(extra.runs), 10) || extra.runs);
+      totalRuns = runs; // byes/leg-byes equal entered runs
+    }
+    actions.addRuns(totalRuns, true, extra.type);
   };
 
   return (

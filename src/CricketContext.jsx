@@ -8,12 +8,16 @@ const initialState = {
   balls: 0,
   overs: "0.0",
   target: null,
+  totalBalls: 120,
   history: [],
   ballByBall: [],
   runRate: 0,
   requiredRunRate: 0,
   ballsRemaining: 0,
-  isTargetMode: false
+  isTargetMode: false,
+  teamAName: 'Team A',
+  teamBName: 'Team B',
+  currentTeam: 'A'
 };
 
 // Action types
@@ -22,6 +26,9 @@ const ACTIONS = {
   ADD_WICKET: 'ADD_WICKET',
   ADD_EXTRA: 'ADD_EXTRA',
   SET_TARGET: 'SET_TARGET',
+  SET_OVERS: 'SET_OVERS',
+  SET_TEAM_NAME: 'SET_TEAM_NAME',
+  SWITCH_TEAM: 'SWITCH_TEAM',
   UNDO: 'UNDO',
   RESET: 'RESET',
   LOAD_STATE: 'LOAD_STATE'
@@ -62,10 +69,11 @@ const cricketReducer = (state, action) => {
       const newScore = state.score + runs;
       const newOvers = calculateOvers(newBalls);
       const newRunRate = calculateRunRate(newScore, newBalls);
-      const ballsRemaining = state.isTargetMode ? (120 - newBalls) : 0; // Assuming 20 overs max
+      const ballsRemaining = state.isTargetMode ? (state.totalBalls - newBalls) : 0;
       const newRequiredRunRate = calculateRequiredRunRate(state.target, newScore, ballsRemaining);
       
-      const ballDisplay = isExtra && extraType ? `${runs}(${extraType})` : runs.toString();
+      const toAbbrev = (t) => t === 'no-ball' ? 'Nb' : t === 'wide' ? 'Wd' : t === 'bye' ? 'B' : t === 'leg-bye' ? 'Lb' : t;
+      const ballDisplay = isExtra && extraType ? `${toAbbrev(extraType)}${runs > 1 ? `${extraType === 'no-ball' ? `+${runs-1}` : runs}` : ''}` : runs.toString();
       
       return saveToHistory({
         ...state,
@@ -90,7 +98,7 @@ const cricketReducer = (state, action) => {
       const newBalls = state.balls + 1;
       const newOvers = calculateOvers(newBalls);
       const newWickets = state.wickets + 1;
-      const ballsRemaining = state.isTargetMode ? (120 - newBalls) : 0;
+      const ballsRemaining = state.isTargetMode ? (state.totalBalls - newBalls) : 0;
       const newRequiredRunRate = calculateRequiredRunRate(state.target, state.score, ballsRemaining);
 
       return saveToHistory({
@@ -117,7 +125,7 @@ const cricketReducer = (state, action) => {
       const newScore = state.score + runs;
       const newOvers = calculateOvers(newBalls);
       const newRunRate = calculateRunRate(newScore, newBalls);
-      const ballsRemaining = state.isTargetMode ? (120 - newBalls) : 0;
+      const ballsRemaining = state.isTargetMode ? (state.totalBalls - newBalls) : 0;
       const newRequiredRunRate = calculateRequiredRunRate(state.target, newScore, ballsRemaining);
 
       return saveToHistory({
@@ -130,7 +138,7 @@ const cricketReducer = (state, action) => {
         ballsRemaining,
         ballByBall: [...state.ballByBall, { 
           type: 'extra', 
-          value: `${runs}(${type})`, 
+          value: `${(type === 'no-ball' ? 'Nb' : type === 'wide' ? 'Wd' : type === 'bye' ? 'B' : type === 'leg-bye' ? 'Lb' : type)}${runs > 1 ? `${type === 'no-ball' ? `+${runs-1}` : runs}` : ''}` , 
           runs,
           isExtra: true,
           countsBall,
@@ -140,12 +148,42 @@ const cricketReducer = (state, action) => {
     }
 
     case ACTIONS.SET_TARGET: {
+      const { target, overs = 20 } = action.payload || {};
+      const totalBalls = Math.max(1, parseInt(overs, 10) || 20) * 6;
       return {
         ...state,
-        target: action.payload,
+        target,
         isTargetMode: true,
-        ballsRemaining: 120 // 20 overs
+        totalBalls,
+        ballsRemaining: Math.max(0, totalBalls - state.balls)
       };
+    }
+
+    case ACTIONS.SET_OVERS: {
+      const { overs } = action.payload || {};
+      const totalBalls = Math.max(1, parseInt(overs, 10) || 20) * 6;
+      return {
+        ...state,
+        totalBalls,
+        ballsRemaining: Math.max(0, totalBalls - state.balls)
+      };
+    }
+
+    case ACTIONS.SET_TEAM_NAME: {
+      const { team, name } = action.payload;
+      if (team !== 'A' && team !== 'B') return state;
+      return saveToHistory({
+        ...state,
+        teamAName: team === 'A' ? name : state.teamAName,
+        teamBName: team === 'B' ? name : state.teamBName
+      });
+    }
+
+    case ACTIONS.SWITCH_TEAM: {
+      return saveToHistory({
+        ...state,
+        currentTeam: state.currentTeam === 'A' ? 'B' : 'A'
+      });
     }
 
     case ACTIONS.UNDO: {
@@ -235,8 +273,20 @@ export const CricketProvider = ({ children }) => {
     });
   };
 
-  const setTarget = (target) => {
-    dispatch({ type: ACTIONS.SET_TARGET, payload: target });
+  const setTarget = (target, overs = 20) => {
+    dispatch({ type: ACTIONS.SET_TARGET, payload: { target, overs } });
+  };
+
+  const setOvers = (overs) => {
+    dispatch({ type: ACTIONS.SET_OVERS, payload: { overs } });
+  };
+
+  const setTeamName = (team, name) => {
+    dispatch({ type: ACTIONS.SET_TEAM_NAME, payload: { team, name } });
+  };
+
+  const switchTeam = () => {
+    dispatch({ type: ACTIONS.SWITCH_TEAM });
   };
 
   const undo = () => {
@@ -254,6 +304,9 @@ export const CricketProvider = ({ children }) => {
       addWicket,
       addExtra,
       setTarget,
+      setOvers,
+      setTeamName,
+      switchTeam,
       undo,
       reset
     }

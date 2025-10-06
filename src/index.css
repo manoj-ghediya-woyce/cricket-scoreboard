@@ -71,6 +71,28 @@ body {
   }
 }
 
+/* Team settings responsive grid */
+.team-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .team-settings {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Overs settings responsive */
+.overs-settings .btn-grid-4 { grid-template-columns: repeat(4, 1fr); }
+.overs-settings .btn-grid-3 { grid-template-columns: 2fr 1fr 1fr; }
+
+@media (max-width: 600px) {
+  .overs-settings .btn-grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .overs-settings .btn-grid-3 { grid-template-columns: 1fr; }
+}
+
 /* Compact Card Styles */
 .card {
   background: white;
@@ -87,6 +109,7 @@ body {
   font-weight: 500;
   font-size: 0.875rem;
   color: #424242;
+  word-break: break-word;
 }
 
 .card-content {
@@ -250,6 +273,9 @@ body {
   .btn-grid-4 {
     grid-template-columns: repeat(2, 1fr);
   }
+  .btn-grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* Ball Indicators */
@@ -261,10 +287,11 @@ body {
 }
 
 .ball-indicator {
-  width: 1.5rem;
+  min-width: 1.5rem;
   height: 1.5rem;
-  border-radius: 50%;
-  display: flex;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 0.75rem;
@@ -302,10 +329,10 @@ body {
 
 .current-over-ball,
 .ball-mini {
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
   background: #e3f2fd;
   color: #1976d2;
   border: 1px solid #bbdefb;

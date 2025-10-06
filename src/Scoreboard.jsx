@@ -2,10 +2,11 @@ import { useCricket } from './hooks/useCricket';
 
 export const Scoreboard = () => {
   const { state } = useCricket();
+  const battingTeamName = state.currentTeam === 'B' ? state.teamBName : state.teamAName;
 
   return (
     <div className="card">
-      <div className="card-header">Live Scoreboard</div>
+      <div className="card-header">{battingTeamName} • Live Score</div>
       <div className="card-content-compact">
         <div className="scoreboard-compact">
           {/* Main Score */}
@@ -14,7 +15,7 @@ export const Scoreboard = () => {
               {state.score}
               <span className="main-score-wickets">/{state.wickets}</span>
             </div>
-            <div className="main-score-overs">({state.overs} overs)</div>
+            <div className="main-score-overs">({state.overs} of {(state.totalBalls/6)} overs)</div>
           </div>
 
           {/* Run Rate */}
@@ -46,7 +47,7 @@ export const Scoreboard = () => {
               <span>🎉 Target Achieved!</span>
             ) : (
               <span>
-                Need {state.target - state.score} runs • Target: {state.target}
+                Need {Math.max(0, state.target - state.score)} runs in {Math.max(0, state.totalBalls - state.balls)} balls
               </span>
             )}
           </div>
