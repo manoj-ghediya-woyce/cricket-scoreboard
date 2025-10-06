@@ -5,6 +5,20 @@ import { ScoringButtons } from './ScoringButtons';
 import { ControlPanel } from './ControlPanel';
 import { MatchStats } from './MatchStats';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useCricket } from './hooks/useCricket';
+
+const TitleUpdater = () => {
+  const { state } = useCricket();
+  const completeOvers = (state.overs || '0.0').split('.')[0];
+
+  // Update the tab title whenever score, wickets or overs change
+  // Example: Woyce | 152/0 ( 25 )
+  const title = `Woyce | ${state.score}/${state.wickets} ( ${completeOvers} )`;
+  if (typeof document !== 'undefined' && document.title !== title) {
+    document.title = title;
+  }
+  return null;
+};
 
 const CricketApp = () => {
   useKeyboardShortcuts();
@@ -19,6 +33,7 @@ const CricketApp = () => {
       </header>
 
       <main className="main-content">
+        <TitleUpdater />
         <div className="cricket-layout">
           <div>
             <Scoreboard />
