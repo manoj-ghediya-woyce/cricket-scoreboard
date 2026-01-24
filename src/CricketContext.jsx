@@ -17,7 +17,10 @@ const initialState = {
   isTargetMode: false,
   teamAName: 'Team A',
   teamBName: 'Team B',
-  currentTeam: 'A'
+  currentTeam: 'A',
+  // Store both innings data
+  inningsA: { score: 0, wickets: 0, balls: 0, overs: "0.0", ballByBall: [] },
+  inningsB: { score: 0, wickets: 0, balls: 0, overs: "0.0", ballByBall: [] }
 };
 
 // Action types
@@ -66,6 +69,11 @@ const cricketReducer = (state, action) => {
       // Count ball for normal runs, dot balls, wickets (handled elsewhere), and byes/leg-byes
       const countsBall = !isExtra || extraType === 'bye' || extraType === 'leg-bye';
       const newBalls = countsBall ? state.balls + 1 : state.balls;
+      
+      // Prevent adding balls beyond the over limit
+      if (newBalls > state.totalBalls) {
+        return state;
+      }
       const newScore = state.score + runs;
       const newOvers = calculateOvers(newBalls);
       const newRunRate = calculateRunRate(newScore, newBalls);
@@ -96,6 +104,12 @@ const cricketReducer = (state, action) => {
 
     case ACTIONS.ADD_WICKET: {
       const newBalls = state.balls + 1;
+      
+      // Prevent adding balls beyond the over limit
+      if (newBalls > state.totalBalls) {
+        return state;
+      }
+      
       const newOvers = calculateOvers(newBalls);
       const newWickets = state.wickets + 1;
       const ballsRemaining = state.isTargetMode ? (state.totalBalls - newBalls) : 0;
@@ -150,12 +164,15 @@ const cricketReducer = (state, action) => {
     case ACTIONS.SET_TARGET: {
       const { target, overs = 20 } = action.payload || {};
       const totalBalls = Math.max(1, parseInt(overs, 10) || 20) * 6;
+      const ballsRemaining = Math.max(0, totalBalls - state.balls);
+      const newRequiredRunRate = calculateRequiredRunRate(target, state.score, ballsRemaining);
       return {
         ...state,
         target,
         isTargetMode: true,
         totalBalls,
-        ballsRemaining: Math.max(0, totalBalls - state.balls)
+        ballsRemaining,
+        requiredRunRate: parseFloat(newRequiredRunRate)
       };
     }
 
@@ -180,9 +197,43 @@ const cricketReducer = (state, action) => {
     }
 
     case ACTIONS.SWITCH_TEAM: {
+      const currentInningsKey = state.currentTeam === 'A' ? 'inningsA' : 'inningsB';
+      const newTeam = state.currentTeam === 'A' ? 'B' : 'A';
+      const newInningsKey = newTeam === 'A' ? 'inningsA' : 'inningsB';
+      
+      // Save current innings data
+      const savedCurrentInnings = {
+        score: state.score,
+        wickets: state.wickets,
+        balls: state.balls,
+        overs: state.overs,
+        ballByBall: state.ballByBall
+      };
+      
+      // Get the other innings data
+      const otherInnings = state[newInningsKey];
+      
+      // Check if we're switching to second innings (current innings has balls bowled but other innings is empty)
+      const isFirstInningsComplete = state.balls > 0 && otherInnings.balls === 0;
+      const targetScore = isFirstInningsComplete ? state.score + 1 : null;
+      const ballsRemaining = isFirstInningsComplete ? state.totalBalls : 0;
+      const newRequiredRunRate = isFirstInningsComplete ? calculateRequiredRunRate(targetScore, 0, ballsRemaining) : 0;
+      
       return saveToHistory({
         ...state,
-        currentTeam: state.currentTeam === 'A' ? 'B' : 'A'
+        [currentInningsKey]: savedCurrentInnings,
+        currentTeam: newTeam,
+        score: otherInnings.score,
+        wickets: otherInnings.wickets,
+        balls: otherInnings.balls,
+        overs: otherInnings.overs,
+        ballByBall: otherInnings.ballByBall,
+        runRate: calculateRunRate(otherInnings.score, otherInnings.balls),
+        // Automatically set target mode when switching to second innings
+        target: targetScore,
+        isTargetMode: isFirstInningsComplete,
+        requiredRunRate: parseFloat(newRequiredRunRate),
+        ballsRemaining
       });
     }
 

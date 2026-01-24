@@ -3,6 +3,7 @@ import { useCricket } from './hooks/useCricket';
 export const Scoreboard = () => {
   const { state } = useCricket();
   const battingTeamName = state.currentTeam === 'B' ? state.teamBName : state.teamAName;
+  const isInningsComplete = state.balls >= state.totalBalls || state.wickets >= 10;
 
   return (
     <div className="card">
@@ -40,11 +41,22 @@ export const Scoreboard = () => {
           )}
         </div>
 
+        {/* Innings Complete Message */}
+        {isInningsComplete && !state.target && (
+          <div className="target-status target-achieved">
+            🏁 Innings Complete
+          </div>
+        )}
+
         {/* Target Status */}
         {state.target && (
           <div className={`target-status ${state.score >= state.target ? 'target-achieved' : ''}`}>
             {state.score >= state.target ? (
               <span>🎉 Target Achieved!</span>
+            ) : state.target - state.score === 1 && isInningsComplete ? (
+              <span>🤝 Match Drawn! Scores are tied</span>
+            ) : isInningsComplete ? (
+              <span>😞 Target Missed! Lost by {state.target - state.score} runs</span>
             ) : (
               <span>
                 Need {Math.max(0, state.target - state.score)} runs in {Math.max(0, state.totalBalls - state.balls)} balls

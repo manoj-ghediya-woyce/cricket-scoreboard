@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCricket } from './hooks/useCricket';
 
 export const ControlPanel = () => {
@@ -9,6 +9,12 @@ export const ControlPanel = () => {
   const [oversInput, setOversInput] = useState('20');
   const [teamA, setTeamA] = useState(state.teamAName || 'Team A');
   const [teamB, setTeamB] = useState(state.teamBName || 'Team B');
+  
+  // Sync team names from state when they change (e.g., on page reload)
+  useEffect(() => {
+    setTeamA(state.teamAName);
+    setTeamB(state.teamBName);
+  }, [state.teamAName, state.teamBName]);
 
   const handleSetTarget = () => {
     const target = parseInt(targetInput);
@@ -25,6 +31,14 @@ export const ControlPanel = () => {
     actions.reset();
     setShowResetModal(false);
   };
+
+  const handleSaveTeams = () => {
+    if (teamA.trim()) actions.setTeamName('A', teamA.trim());
+    if (teamB.trim()) actions.setTeamName('B', teamB.trim());
+  };
+
+  const battingTeamName = state.currentTeam === 'B' ? state.teamBName : state.teamAName;
+  const bowlingTeamName = state.currentTeam === 'B' ? state.teamAName : state.teamBName;
 
   return (
     <>
@@ -87,6 +101,7 @@ export const ControlPanel = () => {
               type="text"
               value={teamA}
               onChange={(e) => setTeamA(e.target.value)}
+              onBlur={handleSaveTeams}
               placeholder="Team A Name"
               style={{ padding: '0.5rem', border: '1px solid #e0e0e0', borderRadius: '4px', width: '100%' }}
             />
@@ -94,11 +109,12 @@ export const ControlPanel = () => {
               type="text"
               value={teamB}
               onChange={(e) => setTeamB(e.target.value)}
+              onBlur={handleSaveTeams}
               placeholder="Team B Name"
               style={{ padding: '0.5rem', border: '1px solid #e0e0e0', borderRadius: '4px', width: '100%' }}
             />
             <button
-              onClick={() => { actions.setTeamName('A', teamA); actions.setTeamName('B', teamB); }}
+              onClick={handleSaveTeams}
               className="btn btn-secondary btn-sm"
               style={{ width: '100%' }}
             >Save Teams</button>
@@ -106,9 +122,9 @@ export const ControlPanel = () => {
 
           <button
             onClick={actions.switchTeam}
-            className="btn btn-secondary btn-sm"
+            className="btn btn-primary btn-sm"
             style={{ width: '100%', marginTop: '0.5rem' }}
-          >Switch Innings</button>
+          >🔄 Switch Innings ({battingTeamName} → {bowlingTeamName})</button>
         </div>
       </div>
 
