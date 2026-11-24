@@ -1,4 +1,5 @@
-const CACHE_NAME = 'cricket-live-cache-v1';
+// Bump this version whenever caching behaviour changes; old caches are deleted on activate.
+const CACHE_NAME = 'cricket-live-cache-v2';
 const ASSETS = [
   '/cricket-scoreboard/',
   '/cricket-scoreboard/index.html',
@@ -11,27 +12,35 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
+  // Take over from an older worker immediately instead of waiting for all tabs to close.
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    caches.keys()
+      .then((keys) =>
+        Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      )
+      .then(() => self.clients.claim())
   );
 });
 
+// Network-first: always try to get the latest deploy, fall back to cache when offline.
 self.addEventListener('fetch', (event) => {
   const request = event.request;
+  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) {
+    return;
+  }
   event.respondWith(
-    caches.match(request).then((cached) => {
-      return cached || fetch(request).then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        }
         return response;
-      }).catch(() => cached);
-    })
+      })
+      .catch(() => caches.match(request))
   );
 });
-
-
