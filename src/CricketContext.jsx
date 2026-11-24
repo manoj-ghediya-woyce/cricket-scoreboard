@@ -1,5 +1,6 @@
 import { createContext, useReducer, useEffect } from 'react';
 import { idbGet, idbSet } from './idb';
+import { isInningsOver } from './matchRules';
 
 // Initial state
 const initialState = {
@@ -18,6 +19,8 @@ const initialState = {
   teamAName: 'Team A',
   teamBName: 'Team B',
   currentTeam: 'A',
+  // Team that batted first ('A' | 'B'); set on the first innings switch
+  firstInnings: null,
   // Store both innings data
   inningsA: { score: 0, wickets: 0, balls: 0, overs: "0.0", ballByBall: [] },
   inningsB: { score: 0, wickets: 0, balls: 0, overs: "0.0", ballByBall: [] }
@@ -56,15 +59,23 @@ const calculateRequiredRunRate = (target, currentRuns, ballsRemaining) => {
   return ((runsNeeded / ballsRemaining) * 6).toFixed(2);
 };
 
+// History snapshots never carry their own history; UNDO rebuilds it from the
+// current list. Keeping them flat stops the undo stack growing quadratically.
+const toSnapshot = (state) => {
+  const { history: _history, ...snapshot } = state;
+  return snapshot;
+};
+
 // Reducer function
 const cricketReducer = (state, action) => {
   const saveToHistory = (newState) => ({
     ...newState,
-    history: [...state.history, { ...state }]
+    history: [...state.history, toSnapshot(state)]
   });
 
   switch (action.type) {
     case ACTIONS.ADD_RUNS: {
+      if (isInningsOver(state)) return state;
       const { runs, isExtra = false, extraType = null } = action.payload;
       // Count ball for normal runs, dot balls, wickets (handled elsewhere), and byes/leg-byes
       const countsBall = !isExtra || extraType === 'bye' || extraType === 'leg-bye';
@@ -103,13 +114,9 @@ const cricketReducer = (state, action) => {
     }
 
     case ACTIONS.ADD_WICKET: {
+      if (isInningsOver(state)) return state;
       const newBalls = state.balls + 1;
-      
-      // Prevent adding balls beyond the over limit
-      if (newBalls > state.totalBalls) {
-        return state;
-      }
-      
+
       const newOvers = calculateOvers(newBalls);
       const newWickets = state.wickets + 1;
       const ballsRemaining = state.isTargetMode ? (state.totalBalls - newBalls) : 0;
@@ -120,6 +127,7 @@ const cricketReducer = (state, action) => {
         wickets: newWickets,
         balls: newBalls,
         overs: newOvers,
+        runRate: parseFloat(calculateRunRate(state.score, newBalls)),
         requiredRunRate: parseFloat(newRequiredRunRate),
         ballsRemaining,
         ballByBall: [...state.ballByBall, { 
@@ -132,6 +140,7 @@ const cricketReducer = (state, action) => {
     }
 
     case ACTIONS.ADD_EXTRA: {
+      if (isInningsOver(state)) return state;
       const { type, runs = 1 } = action.payload;
       // Byes and Leg-byes are legal deliveries and should count as a ball
       const countsBall = type === 'bye' || type === 'leg-bye';
@@ -164,6 +173,8 @@ const cricketReducer = (state, action) => {
     case ACTIONS.SET_TARGET: {
       const { target, overs = 20 } = action.payload || {};
       const totalBalls = Math.max(1, parseInt(overs, 10) || 20) * 6;
+      // Can't shrink the innings below the balls already bowled
+      if (totalBalls < state.balls) return state;
       const ballsRemaining = Math.max(0, totalBalls - state.balls);
       const newRequiredRunRate = calculateRequiredRunRate(target, state.score, ballsRemaining);
       return {
@@ -179,21 +190,24 @@ const cricketReducer = (state, action) => {
     case ACTIONS.SET_OVERS: {
       const { overs } = action.payload || {};
       const totalBalls = Math.max(1, parseInt(overs, 10) || 20) * 6;
+      // Can't shrink the innings below the balls already bowled
+      if (totalBalls < state.balls) return state;
+      const ballsRemaining = state.isTargetMode ? Math.max(0, totalBalls - state.balls) : 0;
       return {
         ...state,
         totalBalls,
-        ballsRemaining: Math.max(0, totalBalls - state.balls)
+        ballsRemaining,
+        requiredRunRate: parseFloat(calculateRequiredRunRate(state.target, state.score, ballsRemaining))
       };
     }
 
     case ACTIONS.SET_TEAM_NAME: {
       const { team, name } = action.payload;
       if (team !== 'A' && team !== 'B') return state;
-      return saveToHistory({
-        ...state,
-        teamAName: team === 'A' ? name : state.teamAName,
-        teamBName: team === 'B' ? name : state.teamBName
-      });
+      const key = team === 'A' ? 'teamAName' : 'teamBName';
+      if (state[key] === name) return state;
+      // Renaming isn't a scoring event, so it doesn't go on the undo stack
+      return { ...state, [key]: name };
     }
 
     case ACTIONS.SWITCH_TEAM: {
@@ -212,26 +226,35 @@ const cricketReducer = (state, action) => {
       
       // Get the other innings data
       const otherInnings = state[newInningsKey];
-      
-      // Check if we're switching to second innings (current innings has balls bowled but other innings is empty)
-      const isFirstInningsComplete = state.balls > 0 && otherInnings.balls === 0;
-      const targetScore = isFirstInningsComplete ? state.score + 1 : null;
-      const ballsRemaining = isFirstInningsComplete ? state.totalBalls : 0;
-      const newRequiredRunRate = isFirstInningsComplete ? calculateRequiredRunRate(targetScore, 0, ballsRemaining) : 0;
-      
+
+      // Work out who batted first. Saves from before `firstInnings` existed
+      // fall back to: an active chase means the other team batted first.
+      const firstInnings = state.firstInnings
+        ?? (state.isTargetMode && otherInnings.balls > 0 ? newTeam
+          : state.balls > 0 ? state.currentTeam : null);
+
+      // The chasing side always gets the target, however often innings are toggled
+      const isChase = firstInnings !== null && newTeam !== firstInnings;
+      const firstInningsScore = firstInnings === state.currentTeam
+        ? state.score
+        : state[firstInnings === 'A' ? 'inningsA' : 'inningsB']?.score ?? 0;
+      const targetScore = isChase ? firstInningsScore + 1 : null;
+      const ballsRemaining = isChase ? Math.max(0, state.totalBalls - otherInnings.balls) : 0;
+      const newRequiredRunRate = isChase ? calculateRequiredRunRate(targetScore, otherInnings.score, ballsRemaining) : 0;
+
       return saveToHistory({
         ...state,
         [currentInningsKey]: savedCurrentInnings,
         currentTeam: newTeam,
+        firstInnings,
         score: otherInnings.score,
         wickets: otherInnings.wickets,
         balls: otherInnings.balls,
         overs: otherInnings.overs,
         ballByBall: otherInnings.ballByBall,
-        runRate: calculateRunRate(otherInnings.score, otherInnings.balls),
-        // Automatically set target mode when switching to second innings
+        runRate: parseFloat(calculateRunRate(otherInnings.score, otherInnings.balls)),
         target: targetScore,
-        isTargetMode: isFirstInningsComplete,
+        isTargetMode: isChase,
         requiredRunRate: parseFloat(newRequiredRunRate),
         ballsRemaining
       });
@@ -242,6 +265,9 @@ const cricketReducer = (state, action) => {
       const previousState = state.history[state.history.length - 1];
       return {
         ...previousState,
+        // Team names aren't part of undo
+        teamAName: state.teamAName,
+        teamBName: state.teamBName,
         history: state.history.slice(0, -1)
       };
     }
@@ -251,7 +277,15 @@ const cricketReducer = (state, action) => {
     }
 
     case ACTIONS.LOAD_STATE: {
-      return { ...action.payload };
+      // Fill in fields missing from older saves, and flatten old nested history
+      const payload = action.payload || {};
+      return {
+        ...initialState,
+        ...payload,
+        inningsA: { ...initialState.inningsA, ...payload.inningsA },
+        inningsB: { ...initialState.inningsB, ...payload.inningsB },
+        history: Array.isArray(payload.history) ? payload.history.map(toSnapshot) : []
+      };
     }
 
     default:

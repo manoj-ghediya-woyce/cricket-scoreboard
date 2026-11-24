@@ -54,9 +54,11 @@ export const Scoreboard = () => {
             {state.score >= state.target ? (
               <span>🎉 Target Achieved!</span>
             ) : state.target - state.score === 1 && isInningsComplete ? (
-              <span>🤝 Match Drawn! Scores are tied</span>
+              <span>🤝 Match Tied! Scores are level</span>
             ) : isInningsComplete ? (
-              <span>😞 Target Missed! Lost by {state.target - state.score} runs</span>
+              <span>
+                😞 Target Missed! Lost by {state.target - state.score - 1} run{state.target - state.score - 1 === 1 ? '' : 's'}
+              </span>
             ) : (
               <span>
                 Need {Math.max(0, state.target - state.score)} runs in {Math.max(0, state.totalBalls - state.balls)} balls

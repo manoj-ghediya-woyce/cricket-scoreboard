@@ -63,7 +63,23 @@ export const usePeerHost = (state) => {
       });
     });
 
+    // Lost the signalling server: existing viewers keep working, but new ones
+    // can't join until we reconnect.
+    peer.on('disconnected', () => {
+      if (peerRef.current === peer && !peer.destroyed) {
+        peer.reconnect();
+      }
+    });
+
     peer.on('error', (err) => {
+      // Tear the peer down fully so "Host Live Score" can start a fresh one
+      if (peerRef.current === peer) {
+        peer.destroy();
+        peerRef.current = null;
+      }
+      connectionsRef.current = [];
+      setPeerId(null);
+      setConnectionCount(0);
       setError(err.message);
       setIsHosting(false);
     });

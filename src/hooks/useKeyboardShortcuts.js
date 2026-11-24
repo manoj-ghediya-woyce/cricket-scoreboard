@@ -6,8 +6,14 @@ export const useKeyboardShortcuts = () => {
 
   useEffect(() => {
     const handleKeyPress = (event) => {
-      // Only handle if not typing in an input field
-      if (event.target.tagName === 'INPUT') return;
+      // Ignore browser/OS shortcuts (Cmd+1, Ctrl+W, Ctrl+U…) and held-down keys
+      if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
+      // Only handle if not typing in an editable field
+      const target = event.target;
+      if (
+        target &&
+        (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable)
+      ) return;
 
       switch (event.key) {
         case '0':
