@@ -30,7 +30,7 @@ export const ViewerMode = ({ hostPeerId }) => {
     <div className="app-container">
       <header className="app-header">
         <div className="header-content">
-          <h1 className="header-title">Woyce Technologies</h1>
+          <h1 className="header-title">Woyce AI llp</h1>
           <p className="header-subtitle">
             {isConnected ? '🔴 Live • Streaming from host' : '🔗 Connecting to host...'}
           </p>

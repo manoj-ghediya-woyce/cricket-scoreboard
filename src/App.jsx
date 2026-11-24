@@ -88,7 +88,7 @@ const CricketApp = () => {
     <div className="app-container">
       <header className="app-header">
         <div className="header-content">
-          <h1 className="header-title">Woyce Technologies</h1>
+          <h1 className="header-title">Woyce AI llp</h1>
           <p className="header-subtitle">Smart, real-time cricket scoring made simple.</p>
         </div>
         <HostingBar />
