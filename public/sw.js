@@ -1,5 +1,5 @@
 // Bump this version whenever caching behaviour changes; old caches are deleted on activate.
-const CACHE_NAME = 'cricket-live-cache-v2';
+const CACHE_NAME = 'cricket-live-cache-v3';
 const ASSETS = [
   '/cricket-scoreboard/',
   '/cricket-scoreboard/index.html',
@@ -10,7 +10,9 @@ const ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.addAll(ASSETS.map((url) => new Request(url, { cache: 'reload' })))
+    )
   );
   // Take over from an older worker immediately instead of waiting for all tabs to close.
   self.skipWaiting();
@@ -32,8 +34,11 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) {
     return;
   }
+  // Pages (HTML) revalidate with the server so a new deploy is never hidden by the
+  // browser's HTTP cache; hashed assets can use the normal HTTP cache.
+  const fresh = request.mode === 'navigate' ? fetch(request, { cache: 'no-cache' }) : fetch(request);
   event.respondWith(
-    fetch(request)
+    fresh
       .then((response) => {
         if (response.ok) {
           const copy = response.clone();
