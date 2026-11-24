@@ -49,9 +49,12 @@ const HostingBar = () => {
   return (
     <div className="hosting-bar">
       {!isHosting ? (
-        <button className="btn btn-host btn-sm" onClick={startHosting}>
-          📡 Host Live Score
-        </button>
+        <>
+          <button className="btn btn-host btn-sm" onClick={startHosting}>
+            📡 Host Live Score
+          </button>
+          {error && <p className="hosting-error">⚠️ Hosting stopped: {error}</p>}
+        </>
       ) : (
         <div className="hosting-active">
           <div className="hosting-meta">

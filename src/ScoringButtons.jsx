@@ -1,4 +1,5 @@
 import { useCricket } from './hooks/useCricket';
+import { isInningsOver } from './matchRules';
 
 export const ScoringButtons = () => {
   const { state, actions } = useCricket();
@@ -20,7 +21,7 @@ export const ScoringButtons = () => {
   ];
 
   // Check if innings is complete
-  const isInningsComplete = state.balls >= state.totalBalls || state.wickets >= 10;
+  const isInningsComplete = isInningsOver(state);
 
   const handleRunClick = (button) => {
     if (isInningsComplete) return;
