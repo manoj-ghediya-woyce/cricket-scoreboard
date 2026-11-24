@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 import { useCricket } from './useCricket';
 
-export const useKeyboardShortcuts = () => {
+export const useKeyboardShortcuts = (enabled = true) => {
   const { actions } = useCricket();
 
   useEffect(() => {
+    if (!enabled) return;
     const handleKeyPress = (event) => {
       // Ignore browser/OS shortcuts (Cmd+1, Ctrl+W, Ctrl+U…) and held-down keys
       if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
@@ -52,5 +53,5 @@ export const useKeyboardShortcuts = () => {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [actions]);
+  }, [actions, enabled]);
 };

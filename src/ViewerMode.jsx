@@ -2,6 +2,7 @@ import { CricketContext } from './CricketContext';
 import { Scoreboard } from './Scoreboard';
 import { BallByBall } from './BallByBall';
 import { MatchStats } from './MatchStats';
+import { AppHeader } from './AppHeader';
 import { usePeerViewer } from './hooks/usePeerViewer';
 
 const noOp = () => {};
@@ -26,39 +27,45 @@ const ViewerCricketProvider = ({ state, children }) => {
 export const ViewerMode = ({ hostPeerId }) => {
   const { viewerState, isConnected, error } = usePeerViewer(hostPeerId);
 
+  const badge = isConnected
+    ? <span className="live-badge">LIVE</span>
+    : null;
+
   return (
     <div className="app-container">
-      <header className="app-header">
-        <div className="header-content">
-          <h1 className="header-title">Woyce AI llp</h1>
-          <p className="header-subtitle">
-            {isConnected ? '🔴 Live • Streaming from host' : '🔗 Connecting to host...'}
-          </p>
-        </div>
-      </header>
+      <AppHeader
+        showNav={false}
+        subtitle={isConnected ? 'Streaming live from host' : 'Connecting to host…'}
+        actions={badge}
+      />
 
       <main className="main-content">
         {error && (
-          <div className="viewer-error-card">
-            <span>❌ {error}</span>
-            <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Check the link and ask the host to start broadcasting again.</span>
+          <div className="card">
+            <div className="state-card error">
+              <span style={{ fontSize: '1.6rem' }}>⚠️</span>
+              <span>{error}</span>
+              <small>Check the link and ask the host to start broadcasting again.</small>
+            </div>
           </div>
         )}
 
         {!isConnected && !error && (
-          <div className="viewer-connecting-card">
-            <span className="pulse">⏳</span>
-            <span>Connecting to live score…</span>
+          <div className="card">
+            <div className="state-card">
+              <div className="spinner" />
+              <span>Connecting to live score…</span>
+            </div>
           </div>
         )}
 
         {isConnected && viewerState && (
           <ViewerCricketProvider state={viewerState}>
-            <div className="cricket-layout">
-              <div>
+            <div className="cricket-layout page-enter">
+              <div className="stack">
                 <Scoreboard />
               </div>
-              <div>
+              <div className="stack">
                 <BallByBall />
                 <MatchStats />
               </div>
@@ -68,7 +75,7 @@ export const ViewerMode = ({ hostPeerId }) => {
       </main>
 
       <footer className="app-footer">
-        <p>Built with ❤️ for cricket lovers</p>
+        <p>Built with ❤️ for cricket lovers · Woyce AI llp</p>
       </footer>
     </div>
   );

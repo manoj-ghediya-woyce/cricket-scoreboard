@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CricketProvider } from './CricketContext';
 import { Scoreboard } from './Scoreboard';
 import { BallByBall } from './BallByBall';
@@ -6,6 +6,8 @@ import { ScoringButtons } from './ScoringButtons';
 import { ControlPanel } from './ControlPanel';
 import { MatchStats } from './MatchStats';
 import { ViewerMode } from './ViewerMode';
+import { AppHeader } from './AppHeader';
+import { BoxCricketRules } from './BoxCricketRules';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useCricket } from './hooks/useCricket';
 import { usePeerHost } from './hooks/usePeerHost';
@@ -22,98 +24,119 @@ const TitleUpdater = () => {
   return null;
 };
 
-const HostingBar = () => {
+// Tiny hash router: #/ → score, #/rules → box cricket rules
+const readRoute = () => (window.location.hash.replace(/^#\/?/, '') === 'rules' ? 'rules' : 'score');
+
+const useHashRoute = () => {
+  const [route, setRoute] = useState(readRoute);
+  useEffect(() => {
+    const onHash = () => {
+      setRoute(readRoute());
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  return route;
+};
+
+const copyText = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // Fallback for browsers without clipboard API
+    const el = document.createElement('input');
+    el.value = text;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+  }
+};
+
+const CricketApp = () => {
+  const route = useHashRoute();
+  useKeyboardShortcuts(route === 'score');
+
   const { state } = useCricket();
   const { shareUrl, isHosting, startHosting, stopHosting, connectionCount, error } = usePeerHost(state);
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
     if (!shareUrl) return;
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Fallback for browsers without clipboard API
-      const el = document.createElement('input');
-      el.value = shareUrl;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    await copyText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  return (
-    <div className="hosting-bar">
-      {!isHosting ? (
-        <>
-          <button className="btn btn-host btn-sm" onClick={startHosting}>
-            📡 Host Live Score
-          </button>
-          {error && <p className="hosting-error">⚠️ Hosting stopped: {error}</p>}
-        </>
-      ) : (
-        <div className="hosting-active">
-          <div className="hosting-meta">
-            <span className="live-badge">● LIVE</span>
-            <span className="hosting-viewers">
-              {connectionCount} viewer{connectionCount !== 1 ? 's' : ''}
-            </span>
-          </div>
-          <div className="hosting-url-row">
-            <input
-              className="hosting-url-input"
-              value={shareUrl || ''}
-              readOnly
-              onClick={e => e.target.select()}
-            />
-            <button className="btn btn-secondary btn-sm" onClick={handleCopy}>
-              {copied ? '✓ Copied!' : 'Copy Link'}
-            </button>
-            <button className="btn btn-danger btn-sm" onClick={stopHosting}>
-              Stop
-            </button>
-          </div>
-          {error && <p className="hosting-error">⚠️ {error}</p>}
-        </div>
-      )}
-    </div>
+  const hostButton = !isHosting && (
+    <button type="button" className="btn btn-host btn-sm" onClick={startHosting} title="Share a live link to this score">
+      <span className="live-dot" aria-hidden="true" /> Go live
+    </button>
   );
-};
-
-const CricketApp = () => {
-  useKeyboardShortcuts();
 
   return (
     <div className="app-container">
-      <header className="app-header">
-        <div className="header-content">
-          <h1 className="header-title">Woyce AI llp</h1>
-          <p className="header-subtitle">Smart, real-time cricket scoring made simple.</p>
-        </div>
-        <HostingBar />
-      </header>
+      <AppHeader route={route} actions={hostButton}>
+        {isHosting && (
+          <div className="hosting-panel">
+            <div className="hosting-active">
+              <div className="hosting-meta">
+                <span className="live-badge">LIVE</span>
+                <span className="hosting-viewers">
+                  {connectionCount} viewer{connectionCount !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="hosting-url-row">
+                <input
+                  className="input hosting-url-input"
+                  value={shareUrl || ''}
+                  readOnly
+                  onClick={e => e.target.select()}
+                  aria-label="Share link"
+                />
+                <button type="button" className="btn btn-secondary btn-sm" onClick={handleCopy}>
+                  {copied ? '✓ Copied' : 'Copy link'}
+                </button>
+                <button type="button" className="btn btn-danger-soft btn-sm" onClick={stopHosting}>
+                  Stop
+                </button>
+              </div>
+              {error && <p className="hosting-error">⚠️ {error}</p>}
+            </div>
+          </div>
+        )}
+        {!isHosting && error && (
+          <p className="hosting-error hosting-error-inline">⚠️ Hosting stopped: {error}</p>
+        )}
+      </AppHeader>
 
       <main className="main-content">
         <TitleUpdater />
-        <div className="cricket-layout">
-          <div>
-            <Scoreboard />
-            <ScoringButtons />
-            <ControlPanel />
+        {route === 'rules' ? (
+          <BoxCricketRules />
+        ) : (
+          <div className="cricket-layout page-enter">
+            <div className="stack">
+              <Scoreboard />
+              <ScoringButtons />
+              <ControlPanel />
+            </div>
+            <div className="stack stack-sticky">
+              <BallByBall />
+              <MatchStats />
+            </div>
           </div>
-          <div>
-            <BallByBall />
-            <MatchStats />
-          </div>
-        </div>
+        )}
       </main>
 
       <footer className="app-footer">
-        <p>Built with ❤️ for cricket lovers</p>
+        {route === 'score' && (
+          <p className="shortcut-hint">
+            Shortcuts: <kbd>0</kbd>–<kbd>6</kbd> runs · <kbd>W</kbd> wicket · <kbd>U</kbd> undo
+          </p>
+        )}
+        <p>Built with ❤️ for cricket lovers · Woyce AI llp</p>
       </footer>
     </div>
   );

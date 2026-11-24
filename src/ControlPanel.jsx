@@ -1,5 +1,31 @@
 import { useState, useEffect } from 'react';
 import { useCricket } from './hooks/useCricket';
+import { getPowerplayOvers } from './matchRules';
+
+const OVERS_PRESETS = [
+  { overs: 5, label: '5' },
+  { overs: 8, label: '8', tag: 'BOX' },
+  { overs: 10, label: '10', tag: 'BOX' },
+  { overs: 12, label: '12', tag: 'BOX' },
+  { overs: 20, label: 'T20' },
+  { overs: 50, label: 'ODI' },
+];
+
+const Modal = ({ onClose, children, labelledBy }) => {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby={labelledBy}>
+        {children}
+      </div>
+    </div>
+  );
+};
 
 export const ControlPanel = () => {
   const { state, actions } = useCricket();
@@ -34,6 +60,11 @@ export const ControlPanel = () => {
     setShowTargetModal(true);
   };
 
+  const closeTargetModal = () => {
+    setShowTargetModal(false);
+    setOversInput(currentOvers);
+  };
+
   const handleSetTarget = () => {
     const target = parseInt(targetInput, 10);
     const overs = parseInt(oversInput, 10);
@@ -56,196 +87,146 @@ export const ControlPanel = () => {
 
   const battingTeamName = state.currentTeam === 'B' ? state.teamBName : state.teamAName;
   const bowlingTeamName = state.currentTeam === 'B' ? state.teamAName : state.teamBName;
+  const ppOvers = getPowerplayOvers(Number(currentOvers));
 
   return (
     <>
       <div className="card">
-        <div className="card-header">Controls</div>
+        <div className="card-header">Match controls</div>
         <div className="card-content-compact">
-          <div className="btn-grid btn-grid-3">
-            {/* Undo Button */}
-            <button
-              onClick={actions.undo}
-              disabled={state.history.length === 0}
-              className="btn btn-secondary btn-sm"
-              style={{
-                opacity: state.history.length === 0 ? 0.5 : 1,
-                cursor: state.history.length === 0 ? 'not-allowed' : 'pointer'
-              }}
-            >
-              ↶ Undo
-            </button>
-
-            {/* Set Target Button */}
-            <button
-              onClick={openTargetModal}
-              className="btn btn-primary btn-sm"
-            >
-              🎯 Target
-            </button>
-
-            {/* Reset Button */}
-            <button
-              onClick={() => setShowResetModal(true)}
-              className="btn btn-danger btn-sm"
-            >
-              🔄 Reset
+          <div className="control-group">
+            <div className="btn-grid btn-grid-3">
+              <button type="button" onClick={actions.undo} disabled={state.history.length === 0} className="btn btn-secondary btn-sm">
+                ↶ Undo
+              </button>
+              <button type="button" onClick={openTargetModal} className="btn btn-soft btn-sm">
+                🎯 Target
+              </button>
+              <button type="button" onClick={() => setShowResetModal(true)} className="btn btn-danger-soft btn-sm">
+                ↻ Reset
+              </button>
+            </div>
+            <button type="button" onClick={actions.switchTeam} className="btn btn-primary btn-sm btn-block" style={{ marginTop: '.5rem' }}>
+              ⇄ Switch innings · {battingTeamName} → {bowlingTeamName}
             </button>
           </div>
-          {/* Overs Presets and Custom */}
-          <div className="overs-settings" style={{ marginTop: '0.75rem' }}>
-            <div className="btn-grid btn-grid-4" style={{ marginBottom: '0.5rem' }}>
-              <button className="btn btn-secondary btn-sm" onClick={() => applyOvers(20)}>T20 (20)</button>
-              <button className="btn btn-secondary btn-sm" onClick={() => applyOvers(50)}>ODI (50)</button>
-              <button className="btn btn-secondary btn-sm" onClick={() => applyOvers(5)}>5</button>
-              <button className="btn btn-secondary btn-sm" onClick={() => applyOvers(10)}>10</button>
+
+          <div className="control-group overs-settings">
+            <div className="section-label">
+              Match overs
+              {ppOvers > 0 && (
+                <span style={{ color: 'var(--extra)', marginLeft: '.4rem' }}>
+                  · ⚡ {ppOvers}-over powerplay
+                </span>
+              )}
             </div>
-            <div className="btn-grid btn-grid-3">
+            <div className="chip-row">
+              {OVERS_PRESETS.map(p => (
+                <button
+                  key={p.overs}
+                  type="button"
+                  className={`chip ${currentOvers === String(p.overs) ? 'active' : ''}`}
+                  onClick={() => applyOvers(p.overs)}
+                  aria-pressed={currentOvers === String(p.overs)}
+                >
+                  {p.label}{p.tag && <span className="chip-tag">{p.tag}</span>}
+                </button>
+              ))}
+            </div>
+            <div className="overs-custom">
               <input
+                className="input"
                 type="number"
+                inputMode="numeric"
+                min="1"
                 value={oversInput}
                 onChange={(e) => setOversInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') applyOvers(parseInt(oversInput, 10) || 20); }}
                 placeholder="Custom overs"
-                style={{ padding: '0.5rem', border: '1px solid #e0e0e0', borderRadius: '4px', width: '100%' }}
+                aria-label="Custom overs"
               />
-              <button className="btn btn-primary btn-sm" onClick={() => applyOvers(parseInt(oversInput, 10) || 20)}>Apply Overs</button>
-              <button className="btn btn-secondary btn-sm" onClick={() => applyOvers(15)}>15</button>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => applyOvers(parseInt(oversInput, 10) || 20)}>
+                Apply
+              </button>
             </div>
           </div>
-          {/* Team Settings */}
-          <div className="team-settings" style={{ marginTop: '0.75rem' }}>
-            <input
-              type="text"
-              value={teamA}
-              onChange={(e) => setTeamA(e.target.value)}
-              onBlur={handleSaveTeams}
-              placeholder="Team A Name"
-              style={{ padding: '0.5rem', border: '1px solid #e0e0e0', borderRadius: '4px', width: '100%' }}
-            />
-            <input
-              type="text"
-              value={teamB}
-              onChange={(e) => setTeamB(e.target.value)}
-              onBlur={handleSaveTeams}
-              placeholder="Team B Name"
-              style={{ padding: '0.5rem', border: '1px solid #e0e0e0', borderRadius: '4px', width: '100%' }}
-            />
-            <button
-              onClick={handleSaveTeams}
-              className="btn btn-secondary btn-sm"
-              style={{ width: '100%' }}
-            >Save Teams</button>
-          </div>
 
-          <button
-            onClick={actions.switchTeam}
-            className="btn btn-primary btn-sm"
-            style={{ width: '100%', marginTop: '0.5rem' }}
-          >🔄 Switch Innings ({battingTeamName} → {bowlingTeamName})</button>
+          <div className="control-group">
+            <div className="section-label">Teams</div>
+            <div className="team-settings">
+              <input
+                className="input"
+                type="text"
+                value={teamA}
+                onChange={(e) => setTeamA(e.target.value)}
+                onBlur={handleSaveTeams}
+                placeholder="Team A name"
+                aria-label="Team A name"
+              />
+              <input
+                className="input"
+                type="text"
+                value={teamB}
+                onChange={(e) => setTeamB(e.target.value)}
+                onBlur={handleSaveTeams}
+                placeholder="Team B name"
+                aria-label="Team B name"
+              />
+              <button type="button" onClick={handleSaveTeams} className="btn btn-secondary btn-sm">Save</button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Target Modal */}
       {showTargetModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '1rem'
-        }}>
-          <div className="card" style={{ width: '100%', maxWidth: '300px', margin: 0 }}>
-            <div className="card-header">Set Target</div>
-            <div className="card-content">
+        <Modal onClose={closeTargetModal} labelledBy="target-title">
+          <div className="modal-icon">🎯</div>
+          <h2 className="modal-title" id="target-title">Set target</h2>
+          <p className="modal-desc">Switch to chase mode with a target score.</p>
+          <div className="modal-body">
+            <label className="field">
+              <span className="field-label">Target runs</span>
               <input
+                className="input input-lg"
                 type="number"
+                inputMode="numeric"
                 value={targetInput}
                 onChange={(e) => setTargetInput(e.target.value)}
-                placeholder="Enter target score"
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '4px',
-                  marginBottom: '1rem',
-                  fontSize: '1rem',
-                  fontFamily: 'inherit'
-                }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSetTarget(); }}
+                placeholder="e.g. 96"
                 autoFocus
               />
+            </label>
+            <label className="field">
+              <span className="field-label">Overs</span>
               <input
+                className="input input-lg"
                 type="number"
+                inputMode="numeric"
                 value={oversInput}
                 onChange={(e) => setOversInput(e.target.value)}
-                placeholder="Enter overs (e.g., 20)"
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '4px',
-                  marginBottom: '1rem',
-                  fontSize: '1rem',
-                  fontFamily: 'inherit'
-                }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSetTarget(); }}
+                placeholder="e.g. 10"
               />
-              <div className="btn-grid btn-grid-2">
-                <button
-                  onClick={() => { setShowTargetModal(false); setOversInput(currentOvers); }}
-                  className="btn btn-secondary btn-md"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSetTarget}
-                  className="btn btn-primary btn-md"
-                >
-                  Set Target
-                </button>
-              </div>
-            </div>
+            </label>
           </div>
-        </div>
+          <div className="btn-grid btn-grid-2">
+            <button type="button" onClick={closeTargetModal} className="btn btn-secondary btn-md">Cancel</button>
+            <button type="button" onClick={handleSetTarget} className="btn btn-primary btn-md">Set target</button>
+          </div>
+        </Modal>
       )}
 
-      {/* Reset Confirmation Modal */}
-            {/* Reset Modal */}
       {showResetModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '1rem'
-        }}>
-          <div className="card" style={{ width: '100%', maxWidth: '300px', margin: 0 }}>
-            <div className="card-header">Reset Match?</div>
-            <div className="card-content">
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.9rem' }}>
-                This will reset all scores and ball-by-ball data. This action cannot be undone.
-              </p>
-              <div className="btn-grid btn-grid-2">
-                <button
-                  onClick={() => setShowResetModal(false)}
-                  className="btn btn-secondary btn-md"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleReset}
-                  className="btn btn-danger btn-md"
-                >
-                  Reset Match
-                </button>
-              </div>
-            </div>
+        <Modal onClose={() => setShowResetModal(false)} labelledBy="reset-title">
+          <div className="modal-icon danger">↻</div>
+          <h2 className="modal-title" id="reset-title">Reset match?</h2>
+          <p className="modal-desc">All scores and ball-by-ball data will be cleared. This can't be undone.</p>
+          <div className="btn-grid btn-grid-2">
+            <button type="button" onClick={() => setShowResetModal(false)} className="btn btn-secondary btn-md">Cancel</button>
+            <button type="button" onClick={handleReset} className="btn btn-danger btn-md">Reset match</button>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

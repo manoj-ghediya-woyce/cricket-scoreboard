@@ -1,26 +1,24 @@
 import { useCricket } from './hooks/useCricket';
 import { isInningsOver } from './matchRules';
 
+const runButtons = [
+  { runs: 0, label: '0', sub: 'Dot', cls: 'is-dot' },
+  { runs: 1, label: '1', sub: 'Single' },
+  { runs: 2, label: '2', sub: 'Double' },
+  { runs: 3, label: '3', sub: 'Triple' },
+  { runs: 4, label: '4', sub: 'Four', cls: 'is-four' },
+  { runs: 6, label: '6', sub: 'Six', cls: 'is-six' }
+];
+
+const extraButtons = [
+  { type: 'wide', label: 'Wide', runs: 1 },
+  { type: 'no-ball', label: 'No Ball', runs: 1 },
+  { type: 'bye', label: 'Bye', runs: 1 },
+  { type: 'leg-bye', label: 'Leg Bye', runs: 1 }
+];
+
 export const ScoringButtons = () => {
   const { state, actions } = useCricket();
-
-  const runButtons = [
-    { runs: 0, label: '•', type: 'dot' },
-    { runs: 1, label: '1' },
-    { runs: 2, label: '2' },
-    { runs: 3, label: '3' },
-    { runs: 4, label: '4' },
-    { runs: 6, label: '6' }
-  ];
-
-  const extraButtons = [
-    { type: 'wide', label: 'Wide', runs: 1 },
-    { type: 'no-ball', label: 'No Ball', runs: 1 },
-    { type: 'bye', label: 'Bye', runs: 1 },
-    { type: 'leg-bye', label: 'Leg Bye', runs: 1 }
-  ];
-
-  // Check if innings is complete
   const isInningsComplete = isInningsOver(state);
 
   const handleRunClick = (button) => {
@@ -49,70 +47,49 @@ export const ScoringButtons = () => {
 
   return (
     <div className="card">
-      <div className="card-header">Scoring</div>
+      <div className="card-header">
+        Scoring
+        <span className="card-header-meta">Tap or use keyboard</span>
+      </div>
       <div className="card-content-compact">
         {isInningsComplete && (
-          <div style={{ 
-            padding: '0.5rem', 
-            marginBottom: '0.75rem', 
-            background: '#e8f5e8', 
-            color: '#2e7d32',
-            borderRadius: '4px',
-            textAlign: 'center',
-            fontSize: '0.85rem',
-            fontWeight: 600
-          }}>
-            🏁 Innings Complete
-          </div>
+          <div className="inline-banner">🏁 Innings complete — switch innings or reset to continue</div>
         )}
-        
-        {/* Runs Buttons */}
-        <div className="btn-grid btn-grid-6" style={{ marginBottom: '0.75rem' }}>
+
+        <div className="run-pad">
           {runButtons.map((button) => (
             <button
               key={button.label}
+              type="button"
               onClick={() => handleRunClick(button)}
               disabled={isInningsComplete}
-              className={`btn btn-sm ${
-                button.runs >= 4 ? 'btn-success pulse' : 'btn-primary'
-              }`}
-              style={{
-                opacity: isInningsComplete ? 0.5 : 1,
-                cursor: isInningsComplete ? 'not-allowed' : 'pointer'
-              }}
+              className={`run-btn ${button.cls || ''}`}
+              aria-label={`${button.runs} run${button.runs === 1 ? '' : 's'}`}
             >
+              <kbd aria-hidden="true">{button.runs}</kbd>
               {button.label}
+              <small>{button.sub}</small>
             </button>
           ))}
         </div>
 
-        {/* Wicket Button */}
         <button
+          type="button"
           onClick={actions.addWicket}
           disabled={isInningsComplete}
-          className="btn btn-danger btn-sm"
-          style={{ 
-            width: '100%', 
-            marginBottom: '0.75rem',
-            opacity: isInningsComplete ? 0.5 : 1,
-            cursor: isInningsComplete ? 'not-allowed' : 'pointer'
-          }}
+          className="btn btn-danger btn-block wicket-btn"
         >
-          🏏 WICKET
+          Wicket <kbd style={{ fontFamily: 'var(--font-mono)', fontSize: '.7rem', opacity: .7 }}>W</kbd>
         </button>
 
-        {/* Extras Buttons */}
-        <div className="btn-grid btn-grid-4">
+        <div className="btn-grid btn-grid-4 extras-row">
           {extraButtons.map((extra) => (
             <button
               key={extra.type}
+              type="button"
               onClick={() => handleExtraClick(extra)}
               disabled={isInningsComplete}
-              className="btn btn-secondary btn-sm"
-              style={{
-                opacity: isInningsComplete ? 0.5 : 1,
-                cursor: isInningsComplete ? 'not-allowed' : 'pointer'
-              }}
+              className="btn btn-sm"
             >
               {extra.label}
             </button>
