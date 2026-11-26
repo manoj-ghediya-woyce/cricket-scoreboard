@@ -1,5 +1,5 @@
 // Bump this version whenever caching behaviour changes; old caches are deleted on activate.
-const CACHE_NAME = 'cricket-live-cache-v6';
+const CACHE_NAME = 'cricket-live-cache-v7';
 const ASSETS = [
   '/cricket-scoreboard/',
   '/cricket-scoreboard/index.html',

@@ -305,9 +305,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .brand-sub { display: none; }
   .nav-tab .tab-label-long { display: none; }
 }
+@media (max-width: 520px) {
+  .brand-text { display: none; }
+}
 @media (max-width: 420px) {
   .header-inner { gap: .5rem; padding: .55rem .75rem; }
-  .brand-text { display: none; }
   .nav-tabs { margin-left: 0; }
   .main-content { padding: .75rem; }
 }
@@ -652,11 +654,26 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .ball.ball-extra { background: var(--extra-soft); border-color: transparent; color: var(--extra); }
 .ball.ball-empty { background: transparent; border-style: dashed; color: transparent; animation: none; }
 
-.overs-history { margin-top: .85rem; display: flex; flex-direction: column; gap: .35rem; max-height: 280px; overflow-y: auto; scrollbar-width: thin; }
+.overs-history {
+  margin-top: .85rem;
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  max-height: 280px;
+  overflow-y: auto;
+  /* reserve the scrollbar's space so it never sits on top of the over totals */
+  scrollbar-gutter: stable;
+  padding-right: .6rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+.overs-history::-webkit-scrollbar { width: 6px; }
+.overs-history::-webkit-scrollbar-track { background: transparent; }
+.overs-history::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 999px; }
 .over-line { display: grid; grid-template-columns: 2.6rem 1fr auto; align-items: center; gap: .5rem; padding: .3rem .1rem; border-top: 1px solid var(--border); }
 .over-line:first-child { border-top: 0; }
 .over-no { font-size: .7rem; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
-.over-total { font-family: var(--font-display); font-size: .85rem; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.over-total { min-width: 1.75rem; text-align: right; font-family: var(--font-display); font-size: .85rem; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .over-line .ball { min-width: 1.6rem; height: 1.6rem; font-size: .7rem; animation: none; }
 
 .empty-state { text-align: center; padding: 1.5rem .5rem; color: var(--text-3); font-size: .88rem; }
