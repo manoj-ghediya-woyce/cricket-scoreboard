@@ -711,6 +711,35 @@ button, input, select, textarea { font: inherit; color: inherit; }
   letter-spacing: .08em;
 }
 .live-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: pulse 1.4s infinite; }
+.reconnect-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: .66rem;
+  font-weight: 800;
+  padding: .2rem .55rem;
+  border-radius: 999px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.reconnect-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 1s infinite; }
+.reconnect-banner {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  margin-bottom: 1rem;
+  padding: .65rem .85rem;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: .85rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.reconnect-banner strong { color: var(--accent); }
+.spinner-sm { width: 18px; height: 18px; border-width: 2px; flex: none; border-top-color: var(--accent); }
+.is-stale { opacity: .72; filter: saturate(.7); transition: opacity .3s, filter .3s; }
 .hosting-viewers { color: var(--text-2); font-size: .8rem; font-weight: 500; }
 .hosting-url-row { display: flex; gap: .4rem; align-items: center; flex: 1; min-width: 240px; }
 .hosting-url-input { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: .76rem; min-height: 34px; padding: .35rem .6rem; }
