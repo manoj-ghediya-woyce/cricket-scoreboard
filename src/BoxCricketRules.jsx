@@ -12,8 +12,8 @@ const FieldDiagram = ({ outside }) => {
       <rect x="3" y="3" width="144" height="174" rx="14" fill="none" stroke="currentColor" strokeOpacity=".35" strokeWidth="2" />
       <rect x="30" y="30" width="90" height="120" rx="40" fill="currentColor" fillOpacity=".05" stroke="currentColor" strokeOpacity=".45" strokeWidth="1.5" strokeDasharray="4 4" />
       <rect x="68" y="58" width="14" height="64" rx="2" fill="#c8a165" fillOpacity=".8" />
-      {inner.slice(0, 6 - outside).map(([x, y], i) => <circle key={`i${i}`} cx={x} cy={y} r="5.5" fill="#14b8a6" />)}
-      {outer.slice(0, outside).map(([x, y], i) => <circle key={`o${i}`} cx={x} cy={y} r="5.5" fill="#f59e0b" stroke="#fff" strokeWidth="1.5" />)}
+      {inner.slice(0, 6 - outside).map(([x, y], i) => <circle key={`i${i}`} cx={x} cy={y} r="5.5" fill="#1e88e5" />)}
+      {outer.slice(0, outside).map(([x, y], i) => <circle key={`o${i}`} cx={x} cy={y} r="5.5" fill="#fb8c00" stroke="#fff" strokeWidth="1.5" />)}
     </svg>
   );
 };
