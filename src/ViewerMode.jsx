@@ -27,9 +27,10 @@ const ViewerCricketProvider = ({ state, children }) => {
 export const ViewerMode = ({ hostPeerId }) => {
   const { viewerState, isConnected, error } = usePeerViewer(hostPeerId);
 
+  const hasScore = !!viewerState;
   const badge = isConnected
     ? <span className="live-badge">LIVE</span>
-    : null;
+    : hasScore ? <span className="reconnect-badge">Reconnecting</span> : null;
 
   return (
     <div className="app-container">
@@ -40,28 +41,28 @@ export const ViewerMode = ({ hostPeerId }) => {
       />
 
       <main className="main-content">
-        {error && (
-          <div className="card">
-            <div className="state-card error">
-              <span style={{ fontSize: '1.6rem' }}>⚠️</span>
-              <span>{error}</span>
-              <small>Check the link and ask the host to start broadcasting again.</small>
-            </div>
-          </div>
-        )}
-
-        {!isConnected && !error && (
+        {!hasScore && (
           <div className="card">
             <div className="state-card">
               <div className="spinner" />
-              <span>Connecting to live score…</span>
+              <span>{error ? `${error} — waiting for host…` : 'Connecting to live score…'}</span>
+              {error && <small>The score will appear automatically when the host is back online.</small>}
             </div>
           </div>
         )}
 
-        {isConnected && viewerState && (
+        {hasScore && !isConnected && (
+          <div className="reconnect-banner" role="status">
+            <div className="spinner spinner-sm" />
+            <span>
+              <strong>{error || 'Connection lost'}</strong> — reconnecting automatically. Showing the last score received.
+            </span>
+          </div>
+        )}
+
+        {hasScore && (
           <ViewerCricketProvider state={viewerState}>
-            <div className="cricket-layout page-enter">
+            <div className={`cricket-layout page-enter ${isConnected ? '' : 'is-stale'}`}>
               <div className="stack">
                 <Scoreboard />
               </div>

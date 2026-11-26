@@ -59,7 +59,7 @@ const CricketApp = () => {
   useKeyboardShortcuts(route === 'score');
 
   const { state } = useCricket();
-  const { shareUrl, isHosting, startHosting, stopHosting, connectionCount, error } = usePeerHost(state);
+  const { shareUrl, isHosting, status, startHosting, stopHosting, connectionCount, error } = usePeerHost(state);
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -82,9 +82,15 @@ const CricketApp = () => {
           <div className="hosting-panel">
             <div className="hosting-active">
               <div className="hosting-meta">
-                <span className="live-badge">LIVE</span>
+                {status === 'live' ? (
+                  <span className="live-badge">LIVE</span>
+                ) : (
+                  <span className="reconnect-badge">{status === 'connecting' ? 'Starting' : 'Reconnecting'}</span>
+                )}
                 <span className="hosting-viewers">
-                  {connectionCount} viewer{connectionCount !== 1 ? 's' : ''}
+                  {status === 'live'
+                    ? `${connectionCount} viewer${connectionCount !== 1 ? 's' : ''}`
+                    : 'Link stays the same — viewers rejoin automatically'}
                 </span>
               </div>
               <div className="hosting-url-row">
