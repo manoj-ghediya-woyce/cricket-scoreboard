@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { CricketProvider } from './CricketContext';
 import { Scoreboard } from './Scoreboard';
 import { BallByBall } from './BallByBall';
@@ -11,6 +11,10 @@ import { BoxCricketRules } from './BoxCricketRules';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useCricket } from './hooks/useCricket';
 import { usePeerHost } from './hooks/usePeerHost';
+import { MATCH_DAY_PATH } from './squad/route';
+
+// Match-day tools load only when opened, so the scorer stays fast.
+const TeamsPage = lazy(() => import('./squad/TeamsPage'));
 
 const TITLE_PREFIX = 'Cricket Live';
 
@@ -24,8 +28,13 @@ const TitleUpdater = () => {
   return null;
 };
 
-// Tiny hash router: #/ → score, #/rules → box cricket rules
-const readRoute = () => (window.location.hash.replace(/^#\/?/, '') === 'rules' ? 'rules' : 'score');
+// Tiny hash router: #/ → score, #/rules → box cricket rules, private match-day link (see squad/route.js)
+const readRoute = () => {
+  const path = window.location.hash.replace(/^#\/?/, '');
+  if (path === 'rules') return 'rules';
+  if (path === MATCH_DAY_PATH || path.startsWith(`${MATCH_DAY_PATH}/`)) return 'teams';
+  return 'score';
+};
 
 const useHashRoute = () => {
   const [route, setRoute] = useState(readRoute);
@@ -69,7 +78,7 @@ const CricketApp = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const hostButton = !isHosting && (
+  const hostButton = !isHosting && route === 'score' && (
     <button type="button" className="btn btn-host btn-sm" onClick={startHosting} title="Share a live link to this score">
       <span className="live-dot" aria-hidden="true" /> Go live
     </button>
@@ -119,7 +128,11 @@ const CricketApp = () => {
 
       <main className="main-content">
         <TitleUpdater />
-        {route === 'rules' ? (
+        {route === 'teams' ? (
+          <Suspense fallback={<div className="state-card"><div className="spinner" /></div>}>
+            <TeamsPage />
+          </Suspense>
+        ) : route === 'rules' ? (
           <BoxCricketRules />
         ) : (
           <div className="cricket-layout page-enter">
