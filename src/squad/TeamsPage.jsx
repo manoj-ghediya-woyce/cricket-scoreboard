@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSquadStore, NAME_MAX, sanitize } from './squadStore';
 import { MATCH_DAY_HASH, MATCH_DAY_PATH } from './route';
+import { supabase } from './db';
 import { Confirm, Modal, Jersey, Toast, TrashIcon } from './ui';
 import { defaultWhen, formatWhen, useFlash, whenTime } from './utils';
 import { MatchView } from './MatchView';
@@ -25,14 +26,115 @@ const useMatchRoute = () => {
 };
 
 export default function TeamsPage() {
-  const { state, act } = useSquadStore();
+  const [session, setSession] = useState(undefined); // undefined = checking
+
+  useEffect(() => {
+    let alive = true;
+    supabase.auth.getSession().then(({ data }) => { if (alive) setSession(data.session ?? null); });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => setSession(next ?? null));
+    return () => { alive = false; sub.subscription.unsubscribe(); };
+  }, []);
+
+  if (session === undefined) return <div className="state-card"><div className="spinner" /></div>;
+  if (!session) return <Login />;
+  // Keyed by user so a different sign-in starts from a clean store.
+  return <Workspace key={session.user.id} email={session.user.email} />;
+}
+
+function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    setBusy(false);
+    if (err) {
+      // Same message for a wrong email or a wrong password, so neither can be probed.
+      setError(err.status === 429 ? 'Too many attempts. Wait a minute and try again.'
+        : err.status === 400 ? 'Wrong email or password.'
+          : 'Could not sign in. Check your internet connection.');
+      setPassword('');
+    }
+  };
+
+  return (
+    <div className="sq-page page-enter sq-login-wrap">
+      <form className="card sq-login" onSubmit={submit}>
+        <div className="card-content">
+          <div className="modal-icon">🔒</div>
+          <h1 className="modal-title">Admin sign in</h1>
+          <p className="modal-desc">Match day is for the admin only.</p>
+          <div className="modal-body">
+            <label className="field">
+              <span className="field-label">Email</span>
+              <input className="input input-lg" type="email" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} maxLength={120} required />
+            </label>
+            <label className="field">
+              <span className="field-label">Password</span>
+              <input className="input input-lg" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} maxLength={200} required />
+            </label>
+            {error && <p className="hosting-error" role="alert">{error}</p>}
+          </div>
+          <button type="submit" className="btn btn-primary btn-md btn-block" disabled={busy || !email || !password}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function Workspace({ email }) {
+  const { state, act, status, saving, syncError, retry, localOffer, acceptLocal, declineLocal } = useSquadStore();
   const matchId = useMatchRoute();
   const match = matchId && state.matches.find(m => m.id === matchId);
 
-  if (matchId && match) {
-    return <MatchView match={match} players={state.players} act={act} />;
+  if (status === 'loading') return <div className="state-card"><div className="spinner" /><small>Loading your squad…</small></div>;
+  if (status === 'error') {
+    return (
+      <div className="state-card error">
+        <span>Could not load from the database.</span>
+        <small>Check your internet connection. If this account is not an admin, nothing will load.</small>
+        <div className="sq-share">
+          <button type="button" className="btn btn-primary btn-sm" onClick={retry}>Try again</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => supabase.auth.signOut()}>Sign out</button>
+        </div>
+      </div>
+    );
   }
-  return <Home state={state} act={act} missing={Boolean(matchId)} />;
+
+  return (
+    <>
+      <div className={`sq-sync ${syncError ? 'bad' : ''}`} role="status">
+        <span className="sq-sync-dot" aria-hidden="true" />
+        <span className="sq-sync-text">{syncError || (saving ? 'Saving…' : 'Saved')}</span>
+        <span className="sq-sync-user">{email}</span>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={() => supabase.auth.signOut()}>Sign out</button>
+      </div>
+      {matchId && match
+        ? <MatchView match={match} players={state.players} act={act} />
+        : <Home state={state} act={act} missing={Boolean(matchId)} />}
+      {localOffer && (
+        <Modal onClose={declineLocal} labelledBy="offer-title">
+          <div className="modal-icon">📥</div>
+          <h2 className="modal-title" id="offer-title">Move this phone&apos;s data to the database?</h2>
+          <p className="modal-desc">
+            This device has {localOffer.players.length} players and {localOffer.matches.length} matches saved from before. The database is empty.
+          </p>
+          <div className="btn-grid btn-grid-2">
+            <button type="button" className="btn btn-secondary btn-md" onClick={declineLocal}>Not now</button>
+            <button type="button" className="btn btn-primary btn-md" onClick={acceptLocal}>Move it</button>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -190,7 +292,7 @@ function Squad({ players, act, setAsk, setFlash, state }) {
       const data = sanitize(JSON.parse(await file.text()));
       setAsk({
         title: 'Restore backup?',
-        desc: `${data.players.length} players and ${data.matches.length} matches will replace what's on this device.`,
+        desc: `${data.players.length} players and ${data.matches.length} matches will replace everything in the database.`,
         yes: 'Restore',
         icon: '📥',
         onYes: () => { act('replace', { data }); setFlash('Backup restored ✓'); },
@@ -223,11 +325,11 @@ function Squad({ players, act, setAsk, setFlash, state }) {
             ))}
           </ul>
         ) : (
-          <div className="empty-state"><div className="empty-state-icon">👥</div>Add your regular players once — they stay saved on this device.</div>
+          <div className="empty-state"><div className="empty-state-icon">👥</div>Add your regular players once — they stay saved in your database.</div>
         )}
 
         <div className="sq-backup">
-          <span>Saved on this device only.</span>
+          <span>Saved in your database.</span>
           <button type="button" className="btn btn-ghost btn-sm" onClick={exportBackup} disabled={!players.length && !state.matches.length}>Backup</button>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => fileRef.current?.click()}>Restore</button>
           <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={e => { importBackup(e.target.files?.[0]); e.target.value = ''; }} />

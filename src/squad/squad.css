@@ -214,3 +214,17 @@
   .sq-team-name { font-size: .84rem; }
   .sq-team-head { padding: .45rem .5rem .15rem; }
 }
+
+/* Login + sync status */
+.sq-login-wrap { align-items: center; padding-top: 6vh; }
+.sq-login { width: 100%; max-width: 380px; }
+.sq-login .card-content { padding: 1.1rem; }
+.sq-sync { display: flex; align-items: center; gap: .45rem; min-width: 0; margin-bottom: .6rem; padding: .15rem .25rem .15rem .7rem; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); font-size: .76rem; color: var(--text-2); }
+.sq-sync-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--in, #2e7d32); }
+.sq-sync.bad { color: var(--wicket); border-color: color-mix(in srgb, var(--wicket) 40%, transparent); }
+.sq-sync.bad .sq-sync-dot { background: var(--wicket); }
+.sq-sync-text { font-weight: 600; flex: none; max-width: 60%; }
+.sq-sync.bad .sq-sync-text { flex: 1; max-width: none; }
+.sq-sync-user { flex: 1; min-width: 0; text-align: right; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sq-sync.bad .sq-sync-user { display: none; }
+.sq-sync .btn { flex: none; min-height: 30px; padding: .2rem .6rem; font-size: .76rem; }
