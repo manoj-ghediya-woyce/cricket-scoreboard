@@ -1,7 +1,8 @@
-// Squad + match-day store. Everything lives on the admin's device (localStorage),
-// so there is no server, no public endpoint and nothing for anyone else to tamper with.
-// Every value read from storage or an imported backup goes through sanitize() first.
-import { useCallback, useEffect, useReducer } from 'react';
+// Squad + match-day store, backed by the live database (see db.js).
+// Every value read from the database, the device cache or an imported backup
+// goes through sanitize() first.
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { diff, fetchAll, push } from './db';
 
 const STORAGE_KEY = 'woyce-squad-v1';
 export const NAME_MAX = 30;
@@ -75,14 +76,12 @@ export function sanitize(raw) {
   return { players, matches };
 }
 
-function load() {
-  let raw = null;
+// The device copy is only a cache (instant first paint) and, before the first
+// sign-in, the place older device-only data may still live.
+function readCache() {
   try {
-    raw = localStorage.getItem(STORAGE_KEY);
-    return sanitize(JSON.parse(raw || 'null'));
+    return sanitize(JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'));
   } catch {
-    // Never silently wipe the squad: park unreadable data so it can be recovered.
-    try { if (raw) localStorage.setItem(`${STORAGE_KEY}-unreadable-${Date.now()}`, raw); } catch { /* ignore */ }
     return EMPTY;
   }
 }
@@ -202,27 +201,79 @@ function reducer(state, a) {
   }
 }
 
+const isEmpty = (st) => !st.players.length && !st.matches.length;
+
+// State lives in the database. Every change is applied on screen at once, then
+// saved in order; if a save fails the screen is reloaded from the database so it
+// never shows something that was not stored.
 export function useSquadStore() {
-  const [state, dispatch] = useReducer(reducer, undefined, load);
+  const [state, dispatch] = useReducer(reducer, EMPTY);
+  const [status, setStatus] = useState('loading'); // loading | ready | error
+  const [saving, setSaving] = useState(0);
+  const [syncError, setSyncError] = useState('');
+  const [localOffer, setLocalOffer] = useState(null);
+  const saved = useRef(EMPTY);
+  const loaded = useRef(false);
+  const pending = useRef(0);
+  const queue = useRef(Promise.resolve());
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // Storage full or blocked (private mode): the app keeps working in memory.
-    }
-  }, [state]);
-
-  // Keep two open tabs in step.
-  useEffect(() => {
-    const onStorage = (e) => {
-      if (e.key !== STORAGE_KEY || !e.newValue) return;
-      try { dispatch({ type: 'replace', data: JSON.parse(e.newValue) }); } catch { /* ignore bad data */ }
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+  const refresh = useCallback(async () => {
+    const data = sanitize(await fetchAll());
+    saved.current = data;
+    loaded.current = true;
+    dispatch({ type: 'replace', data });
+    return data;
   }, []);
 
+  useEffect(() => {
+    let alive = true;
+    const cache = readCache();
+    refresh()
+      .then((data) => {
+        if (!alive) return;
+        setStatus('ready');
+        // Older versions kept everything on the device: offer to move it over once.
+        if (isEmpty(data) && !isEmpty(cache)) setLocalOffer(cache);
+      })
+      .catch(() => { if (alive) setStatus('error'); });
+
+    // Pick up changes made on another device when the admin comes back to the tab.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && loaded.current && pending.current === 0) {
+        refresh().then(() => setSyncError('')).catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { alive = false; document.removeEventListener('visibilitychange', onVisible); };
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!loaded.current) return;
+    const changes = diff(saved.current, state);
+    if (!changes) return;
+    saved.current = state;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch { /* cache only */ }
+    pending.current += 1;
+    setSaving(n => n + 1);
+    queue.current = queue.current
+      .then(() => push(changes))
+      .then(() => setSyncError(''))
+      .catch(async () => {
+        setSyncError('Could not save. Check your internet connection.');
+        try { await refresh(); } catch { /* stay on screen; next change retries */ }
+      })
+      .finally(() => { pending.current -= 1; setSaving(n => n - 1); });
+  }, [state, refresh]);
+
   const act = useCallback((type, payload = {}) => dispatch({ type, ...payload }), []);
-  return { state, act };
+  const retry = useCallback(() => {
+    setStatus('loading');
+    refresh().then(() => setStatus('ready')).catch(() => setStatus('error'));
+  }, [refresh]);
+  const acceptLocal = useCallback(() => {
+    setLocalOffer((offer) => { if (offer) dispatch({ type: 'replace', data: offer }); return null; });
+  }, []);
+  const declineLocal = useCallback(() => setLocalOffer(null), []);
+
+  return { state, act, status, saving: saving > 0, syncError, retry, localOffer, acceptLocal, declineLocal };
 }
