@@ -91,13 +91,14 @@ function readCache() {
 // ---------------------------------------------------------------------------
 export const other = (t) => (t === 'A' ? 'B' : 'A');
 
-// Captains alternate one pick at a time. If an edit (move / remove) left the teams
-// uneven, the smaller team picks next until they're level again.
+// Captains alternate one pick at a time: the smaller team picks next, and when the
+// teams are level it is the first-pick captain's turn. Counting (rather than looking at
+// who picked last) keeps the order right after a pick is moved or sent back.
 export const nextTurn = (draft) => {
   const a = draft.picks.filter(p => p.team === 'A').length;
   const b = draft.picks.length - a;
   if (a !== b) return a < b ? 'A' : 'B';
-  return draft.picks.length ? other(draft.picks[draft.picks.length - 1].team) : draft.first;
+  return draft.first;
 };
 
 export const teamOf = (draft, pid) => {
@@ -268,7 +269,7 @@ export function useSquadStore() {
   const act = useCallback((type, payload = {}) => dispatch({ type, ...payload }), []);
   const retry = useCallback(() => {
     setStatus('loading');
-    refresh().then(() => setStatus('ready')).catch(() => setStatus('error'));
+    refresh().then(() => { setSyncError(''); setStatus('ready'); }).catch(() => setStatus('error'));
   }, [refresh]);
   const acceptLocal = useCallback(() => {
     setLocalOffer((offer) => { if (offer) dispatch({ type: 'replace', data: offer }); return null; });
